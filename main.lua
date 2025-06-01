@@ -1,4 +1,5 @@
--- name: Flood
+-- name: Flood Workshop
+-- category: gamemode
 -- incompatible: gamemode flood
 -- description: Flood v2.4.8\nBy \\#ec7731\\Agent X\\#dcdcdc\\\n\nThis mod adds a flood escape gamemode\nto sm64ex-coop, you must escape the flood and reach the top of the level before everything is flooded.
 
@@ -293,8 +294,8 @@ local function mario_update(m)
             set_mario_spectator(m)
         end
     else
-        if m.pos.y + 40 < gGlobalSyncTable.waterLevel then
-            m.health = m.health - 30
+        if m.pos.y + 150 < gGlobalSyncTable.waterLevel then
+            m.health = m.health - 30 * math.min(gGlobalSyncTable.speedMultiplier*0.5, 2)
         end
 
         if m.action == ACT_QUICKSAND_DEATH then
@@ -520,6 +521,7 @@ local function on_speed_command(msg)
     end
 
     djui_chat_message_create("/flood \\#00ffff\\speed\\#ffff00\\ [number]\\#dcdcdc\\\nSets the speed multiplier of the flood")
+    gGlobalSyncTable.speedMultiplier = msg
     return true
 end
 
@@ -631,6 +633,7 @@ hook_event(HOOK_ON_LEVEL_INIT, on_level_init)
 hook_event(HOOK_ON_WARP, on_warp)
 hook_event(HOOK_ON_PLAYER_CONNECTED, on_player_connected)
 
+local floodButtonIndexSpeed = 0
 if network_is_server() then
     hook_chat_command("flood", "\\#00ffff\\[start|speed|ttc-speed|speedrun|scoreboard]", on_flood_command)
 end

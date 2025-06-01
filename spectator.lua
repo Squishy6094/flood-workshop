@@ -139,7 +139,9 @@ local function on_set_mario_action(m)
         set_override_fov(sPlayerFirstPerson.fov)
         sPlayerFirstPerson.pitch = 0
         sPlayerFirstPerson.yaw = m.faceAngle.y + 0x8000
-    else
+        djui_hud_set_mouse_locked(true)
+    elseif m.prevAction == ACT_SPECTATOR then
+        m.prevAction = m.action
         if sPlayerFirstPerson.freecam then
             gLakituState.mode = CAMERA_MODE_NEWCAM
             gLakituState.defMode = CAMERA_MODE_NEWCAM
