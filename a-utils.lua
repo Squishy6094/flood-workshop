@@ -1,4 +1,4 @@
-moveset = false
+serverMoveset = false
 
 for mod in pairs(gActiveMods) do
     if gActiveMods[mod].name:find("Object Spawner") or gActiveMods[mod].name:find("Noclip") then
@@ -7,8 +7,8 @@ for mod in pairs(gActiveMods) do
 end
 
 for i in pairs(gActiveMods) do
-    if (gActiveMods[i].incompatible ~= nil and gActiveMods[i].incompatible:find("moveset")) or (gActiveMods[i].name:find("Pasta") and gActiveMods[i].name:find("Castle")) then
-        moveset = true
+    if (gActiveMods[i].incompatible ~= nil and gActiveMods[i].incompatible:find("moveset")) then
+        serverMoveset = true
     end
 end
 

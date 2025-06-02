@@ -27,6 +27,26 @@ local globalTimer = 0
 local listedSurvivors = false
 local speedrunner = 0
 
+gFloodPlayers = {}
+for i = 0, MAX_PLAYERS - 1 do
+    gFloodPlayers[i] = {
+        index = network_global_index_from_local(i),
+        time = "0.000",
+    }
+end
+
+local function network_send_time(time)
+    gFloodPlayers[0].time = time
+    network_send(true, gFloodPlayers[0])
+end
+
+local function on_packet_recieve(data)
+    local index = network_local_index_from_global(data.index)
+    gFloodPlayers[index] = data
+end
+
+hook_event(HOOK_ON_PACKET_RECEIVE, on_packet_recieve)
+
 -- localize functions to improve performance
 local network_player_connected_count,init_single_mario,warp_to_level,play_sound,network_is_server,network_get_player_text_color_string,djui_chat_message_create,disable_time_stop,network_player_set_description,set_mario_action,obj_get_first_with_behavior_id,obj_check_hitbox_overlap,spawn_mist_particles,vec3f_dist,play_race_fanfare,play_music,djui_hud_set_resolution,djui_hud_get_screen_height,djui_hud_get_screen_width,djui_hud_render_rect,djui_hud_set_font,djui_hud_world_pos_to_screen_pos,clampf,math_floor,djui_hud_measure_text,djui_hud_print_text,hud_render_power_meter,hud_get_value,save_file_erase_current_backup_save,save_file_set_flags,save_file_set_using_backup_slot,find_floor_height,spawn_non_sync_object,set_environment_region,vec3f_set,vec3f_copy,math_random,set_ttc_speed_setting,get_level_name,hud_hide,smlua_text_utils_secret_star_replace,smlua_audio_utils_replace_sequence = network_player_connected_count,init_single_mario,warp_to_level,play_sound,network_is_server,network_get_player_text_color_string,djui_chat_message_create,disable_time_stop,network_player_set_description,set_mario_action,obj_get_first_with_behavior_id,obj_check_hitbox_overlap,spawn_mist_particles,vec3f_dist,play_race_fanfare,play_music,djui_hud_set_resolution,djui_hud_get_screen_height,djui_hud_get_screen_width,djui_hud_render_rect,djui_hud_set_font,djui_hud_world_pos_to_screen_pos,clampf,math.floor,djui_hud_measure_text,djui_hud_print_text,hud_render_power_meter,hud_get_value,save_file_erase_current_backup_save,save_file_set_flags,save_file_set_using_backup_slot,find_floor_height,spawn_non_sync_object,set_environment_region,vec3f_set,vec3f_copy,math.random,set_ttc_speed_setting,get_level_name,hud_hide,smlua_text_utils_secret_star_replace,smlua_audio_utils_replace_sequence
 
@@ -63,18 +83,29 @@ local function get_dest_act()
 end
 
 local function get_modifiers_string()
-    if not cheats and not moveset then return "" end
+    --if not cheats and not serverMoveset then return "" end
+    local moveset = false
+    if _G.OmmEnabled and _G.OmmApi.omm_get_setting(m, _G.OmmApi["OMM_SETTING_MOVESET"]) == _G.OmmApi["OMM_SETTING_MOVESET_ODYSSEY"] then
+        moveset = true
+    end
+    if _G.charSelectExists then
+        local charMoveset = _G.charSelect.character_get_moveset(_G.charSelect.character_get_current_number(0)) ~= {}
+        local charToggle = _G.charSelect.get_options_status(_G.charSelect.optionTableRef.localMoveset) ~= 0 
+        if charMoveset and charToggle then
+            moveset = true
+        end
+    end
 
-    local modifiers = " ("
-    if moveset then
+    local modifiers = ""
+    if serverMoveset or moveset then
         modifiers = modifiers .. "Moveset"
-    else
-        modifiers = modifiers .. "No moveset"
     end
     if cheats then
-        modifiers = modifiers .. ", cheats"
+        modifiers = modifiers .. ", Cheats"
     end
-    modifiers = modifiers .. ")"
+    if modifiers ~= "" then
+        modifiers = " (" .. modifiers .. ")"
+    end
     return modifiers
 end
 
@@ -180,7 +211,7 @@ local function update()
                 local string = "Survivors:"
                 for i = 0, (MAX_PLAYERS - 1) do
                     if gNetworkPlayers[i].connected and gPlayerSyncTable[i].finished then
-                        string = string .. "\n" .. network_get_player_text_color_string(i) .. gNetworkPlayers[i].name
+                        string = string .. "\n" .. network_get_player_text_color_string(i) .. gNetworkPlayers[i].name .. " - " .. gFloodPlayers[i].time
                         finished = finished + 1
                     end
                 end
@@ -269,8 +300,8 @@ local function mario_update(m)
     end
 
     -- check if the player has reached the end of the level 
-    if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gPlayerSyncTable[0].finished and ((gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and m.pos.y == m.floorHeight)
-    or (gNetworkPlayers[0].currLevelNum == LEVEL_CTT and m.action == ACT_JUMBO_STAR_CUTSCENE) or (m.action & ACT_FLAG_ON_POLE) ~= 0)
+    if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gPlayerSyncTable[0].finished and ((gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and (m.action & ACT_FLAG_ON_POLE) ~= 0)
+    or (gNetworkPlayers[0].currLevelNum == LEVEL_CTT and m.action == ACT_JUMBO_STAR_CUTSCENE))
     and vec3f_dist(m.pos, gLevels[gGlobalSyncTable.level].goalPos) < 600 then
         gPlayerSyncTable[0].finished = true
 
@@ -283,7 +314,7 @@ local function mario_update(m)
             play_music(0, SEQUENCE_ARGS(8, SEQ_EVENT_CUTSCENE_VICTORY), 0)
         end
         string = string .. "\\#dcdcdc\\Time: " .. string.format("%.3f", gLevels[gGlobalSyncTable.level].time / 30) .. get_modifiers_string()
-
+        network_send_time(string.format("%.3f", gLevels[gGlobalSyncTable.level].time / 30) .. get_modifiers_string())
         djui_chat_message_create(string)
     end
 
@@ -294,8 +325,34 @@ local function mario_update(m)
             set_mario_spectator(m)
         end
     else
-        if m.pos.y + 150 < gGlobalSyncTable.waterLevel then
-            m.health = m.health - 30 * math.min(gGlobalSyncTable.speedMultiplier*0.5, 2)
+        if m.pos.y < gGlobalSyncTable.waterLevel then
+            -- Different Water Types
+            local water = obj_get_first_with_behavior_id(id_bhvWater)
+            if water ~= nil then
+                switch(water.oAnimState, {
+                    ['default'] = function()
+                        if m.pos.y + 150 < gGlobalSyncTable.waterLevel then
+                            m.health = m.health - 30 * math.min(gGlobalSyncTable.speedMultiplier*0.5, 2)
+                        end
+                    end,
+                    [FLOOD_LAVA] = function()
+                        if m.action ~= ACT_SPECTATOR then
+                            if (not (m.flags & MARIO_METAL_CAP) ~= 0) then
+                                m.hurtCounter = m.hurtCounter + (m.flags & MARIO_CAP_ON_HEAD) and 12 or 18;
+                            end
+                            set_mario_action(m, ACT_LAVA_BOOST, 0)
+                        end
+                    end,
+                    --[[
+                    [FLOOD_SAND] = function()
+                        djui_hud_set_adjusted_color(254, 193, 121, 220)
+                    end,
+                    [FLOOD_MUD] = function()
+                        djui_hud_set_adjusted_color(74, 123, 0, 220)
+                    end
+                    ]]
+                })
+            end
         end
 
         if m.action == ACT_QUICKSAND_DEATH then
@@ -314,6 +371,7 @@ local function mario_update(m)
 end
 
 local function on_hud_render()
+    hud_hide()
     local water = obj_get_first_with_behavior_id(id_bhvWater)
     if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and water ~= nil then
         djui_hud_set_resolution(RESOLUTION_DJUI)
@@ -615,8 +673,6 @@ gLevelValues.floorLowerLimitMisc = -20000 + 1000
 gLevelValues.floorLowerLimitShadow = -20000 + 1000.0
 gLevelValues.fixCollisionBugs = 1
 gLevelValues.fixCollisionBugsRoundedCorners = 0
-
-hud_hide()
 
 if game == GAME_VANILLA then
     set_ttc_speed_setting(TTC_SPEED_SLOW)
