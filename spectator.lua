@@ -7,7 +7,7 @@ local sPlayerFirstPerson = {
     freecam = camera_config_is_free_cam_enabled(),
     pitch = 0,
     yaw = 0,
-    fov = 70
+    fov = 75
 }
 
 -- localize functions to improve performance - spectator.lua
@@ -20,8 +20,8 @@ local function update_fp_camera(m)
 
     local sensX = 0.3 * camera_config_get_x_sensitivity()
     local sensY = 0.4 * camera_config_get_y_sensitivity()
-    local invX = if_then_else(camera_config_is_x_inverted(), 1, -1)
-    local invY = if_then_else(camera_config_is_y_inverted(), 1, -1)
+    local invX = if_then_else(camera_config_is_free_cam_enabled() and camera_config_is_x_inverted() or not camera_config_is_x_inverted(), -1, 1)
+    local invY = if_then_else(camera_config_is_y_inverted(), -1, 1)
 
     if not is_game_paused() then
         -- update pitch
@@ -37,8 +37,9 @@ local function update_fp_camera(m)
         sPlayerFirstPerson.yaw = (sPlayerFirstPerson.yaw + 0x10000) % 0x10000
     end
 
-    gLakituState.yaw = sPlayerFirstPerson.yaw
-    m.area.camera.yaw = sPlayerFirstPerson.yaw
+    -- Force roll to 0
+    gLakituState.roll = 0
+    gLakituState.keyDanceRoll = 0
 
     -- update pos
     gLakituState.pos.x = sPlayerFirstPerson.pos.x + coss(sPlayerFirstPerson.pitch) * sins(sPlayerFirstPerson.yaw)
@@ -99,8 +100,8 @@ local function act_spectator(m)
     if m.playerIndex ~= 0 then return end
 
     if not is_game_paused() then
-        local forward = { x = sins(m.faceAngle.y), y = 0, z = coss(m.faceAngle.y) }
-        local right = { x = sins(m.faceAngle.y - 0x4000), y = 0, z = coss(m.faceAngle.y - 0x4000) }
+        local forward = { x = -sins(sPlayerFirstPerson.yaw), y = 0, z = -coss(sPlayerFirstPerson.yaw) }
+        local right = { x = -sins(sPlayerFirstPerson.yaw - 0x4000), y = 0, z = -coss(sPlayerFirstPerson.yaw - 0x4000) }
         local dir = { x = forward.x * m.controller.stickY + right.x * m.controller.stickX, y = 0, z = forward.z * m.controller.stickY + right.z * m.controller.stickX }
         local speed = if_then_else((m.controller.buttonDown & B_BUTTON) ~= 0, 2, 1)
         dir = vec3f_mul(dir, speed)
@@ -140,17 +141,18 @@ local function on_set_mario_action(m)
         sPlayerFirstPerson.pitch = 0
         sPlayerFirstPerson.yaw = m.faceAngle.y + 0x8000
         djui_hud_set_mouse_locked(true)
-    elseif m.prevAction == ACT_SPECTATOR then
-        m.prevAction = m.action
-        if sPlayerFirstPerson.freecam then
-            gLakituState.mode = CAMERA_MODE_NEWCAM
-            gLakituState.defMode = CAMERA_MODE_NEWCAM
+    else
+        if camera_is_frozen() then
+            camera_unfreeze()
+            if sPlayerFirstPerson.freecam then
+                gLakituState.mode = CAMERA_MODE_NEWCAM
+                gLakituState.defMode = CAMERA_MODE_NEWCAM
+            end
+            set_override_near(0)
+            set_override_fov(0)
+            sPlayerFirstPerson.pitch = 0
+            sPlayerFirstPerson.yaw = 0
         end
-        camera_unfreeze()
-        set_override_near(0)
-        set_override_fov(0)
-        sPlayerFirstPerson.pitch = 0
-        sPlayerFirstPerson.yaw = 0
         if not camera_config_is_mouse_look_enabled() then
             djui_hud_set_mouse_locked(false)
         end
@@ -163,3 +165,12 @@ hook_event(HOOK_ON_SET_MARIO_ACTION, on_set_mario_action)
 
 ---@diagnostic disable-next-line: missing-parameter
 hook_mario_action(ACT_SPECTATOR, act_spectator)
+--[[
+hook_event(HOOK_BEFORE_MARIO_UPDATE, function(m)
+    if m.playerIndex == 0 and m.action == ACT_SPECTATOR then
+        gLakituState.yaw = sPlayerFirstPerson.yaw
+        m.area.camera.yaw = sPlayerFirstPerson.yaw
+        m.intendedYaw = atan2s(-m.controller.stickY, m.controller.stickX) + gLakituState.yaw
+    end
+end)
+]]
