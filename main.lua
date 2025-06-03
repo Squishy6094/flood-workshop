@@ -195,7 +195,10 @@ end
 local function update()
     if network_is_server() then server_update() end
 
-    gServerSettings.playerInteractions = PLAYER_INTERACTIONS_NONE
+    if gServerSettings.playerInteractions == PLAYER_INTERACTIONS_PVP then
+        gServerSettings.playerInteractions = PLAYER_INTERACTIONS_SOLID
+    end
+    gServerSettings.playerKnockbackStrength = 20
 
     if gGlobalSyncTable.roundState == ROUND_STATE_INACTIVE then
         if gNetworkPlayers[0].currLevelNum ~= LEVEL_LOBBY or gNetworkPlayers[0].currActNum ~= 0 then
