@@ -159,3 +159,21 @@ function timestamp(seconds)
     seconds = math.floor(seconds) % 60
     return string.format("%d:%02d:%03d", minutes, seconds, milliseconds)
 end
+
+function set_world_color(r, g, b, a)
+    local intensity = a / 255
+    a = intensity + 255 * (1 - intensity)
+    set_lighting_color(0, r * a)
+    set_lighting_color(1, g * a)
+    set_lighting_color(2, b * a)
+    set_skybox_color(0, r * a)
+    set_skybox_color(1, g * a)
+    set_skybox_color(2, b * a)
+    set_fog_color(0, r * a)
+    set_fog_color(1, g * a)
+    set_fog_color(2, b * a)
+    --set_fog_intensity(a)
+    set_vertex_color(0, r * a)
+    set_vertex_color(1, g * a)
+    set_vertex_color(2, b * a)
+end

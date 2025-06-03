@@ -331,25 +331,33 @@ local function mario_update(m)
         if m.pos.y < gGlobalSyncTable.waterLevel then
             -- Different Water Types
             local water = obj_get_first_with_behavior_id(id_bhvWater)
-            if water ~= nil then
+            if water ~= nil and m.action ~= ACT_SPECTATOR then
                 switch(water.oAnimState, {
                     ['default'] = function()
                         if m.pos.y + 150 < gGlobalSyncTable.waterLevel then
-                            m.health = m.health - 30 * math.min(gGlobalSyncTable.speedMultiplier*0.5, 2)
+                            m.health = m.health - 30
                         end
                     end,
                     [FLOOD_LAVA] = function()
-                        if m.action ~= ACT_SPECTATOR then
-                            if (not (m.flags & MARIO_METAL_CAP) ~= 0) then
-                                m.hurtCounter = m.hurtCounter + (m.flags & MARIO_CAP_ON_HEAD) and 12 or 18;
-                            end
-                            set_mario_action(m, ACT_LAVA_BOOST, 0)
+                        if (not (m.flags & MARIO_METAL_CAP) ~= 0) then
+                            m.hurtCounter = m.hurtCounter + (m.flags & MARIO_CAP_ON_HEAD) and 12 or 18;
                         end
+                        set_mario_action(m, ACT_LAVA_BOOST, 0)
+                    end,
+                    [FLOOD_SAND] = function()
+                        local velCap = -10
+                        if m.controller.buttonPressed & (A_BUTTON) ~= 0 then
+                            set_mario_action(m, ACT_JUMP, 0)
+                            m.faceAngle.y = m.intendedYaw
+                            m.vel.y = m.vel.y * 0.75
+                        end
+                        m.health = m.health - 30
+                        if m.pos.y + 200 < gGlobalSyncTable.waterLevel then
+                            m.health = 0xFF
+                        end
+                        m.vel.y = math.max(velCap, m.vel.y)
                     end,
                     --[[
-                    [FLOOD_SAND] = function()
-                        djui_hud_set_adjusted_color(254, 193, 121, 220)
-                    end,
                     [FLOOD_MUD] = function()
                         djui_hud_set_adjusted_color(74, 123, 0, 220)
                     end
@@ -375,6 +383,7 @@ end
 
 local function on_hud_render()
     hud_hide()
+    set_world_color(255, 255, 255, 255)
     local water = obj_get_first_with_behavior_id(id_bhvWater)
     if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and water ~= nil then
         djui_hud_set_resolution(RESOLUTION_DJUI)
@@ -382,19 +391,19 @@ local function on_hud_render()
         if gLakituState.pos.y < gGlobalSyncTable.waterLevel - 10 then
             switch(water.oAnimState, {
                 [FLOOD_WATER] = function()
-                    djui_hud_set_adjusted_color(0, 20, 200, 120)
+                    set_world_color(0, 20, 200, 120)
                 end,
                 [FLOOD_LAVA] = function()
-                    djui_hud_set_adjusted_color(200, 0, 0, 220)
+                    set_world_color(200, 0, 0, 220)
                 end,
                 [FLOOD_SAND] = function()
-                    djui_hud_set_adjusted_color(254, 193, 121, 220)
+                    set_world_color(254, 193, 121, 220)
                 end,
                 [FLOOD_MUD] = function()
-                    djui_hud_set_adjusted_color(74, 123, 0, 220)
+                    set_world_color(74, 123, 0, 220)
                 end
             })
-            djui_hud_render_rect(0, 0, djui_hud_get_screen_width(), djui_hud_get_screen_height())
+            --djui_hud_render_rect(0, 0, djui_hud_get_screen_width(), djui_hud_get_screen_height())
         end
     end
 
