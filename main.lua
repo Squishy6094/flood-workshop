@@ -20,6 +20,7 @@ gGlobalSyncTable.timer = ROUND_COOLDOWN
 gGlobalSyncTable.level = LEVEL_BOB
 gGlobalSyncTable.waterLevel = -20000
 gGlobalSyncTable.speedMultiplier = 1
+gGlobalSyncTable.materialPhys = false
 
 local sFlagIconPrevPos = { x = 0, y = 0 }
 
@@ -31,12 +32,18 @@ gFloodPlayers = {}
 for i = 0, MAX_PLAYERS - 1 do
     gFloodPlayers[i] = {
         index = network_global_index_from_local(i),
+        finished = false,
         time = "0.000",
     }
 end
 
 local function network_send_time(time)
     gFloodPlayers[0].time = time
+    network_send(true, gFloodPlayers[0])
+end
+
+local function network_send_finished(finished)
+    gFloodPlayers[0].finished = finished
     network_send(true, gFloodPlayers[0])
 end
 
@@ -125,7 +132,7 @@ local function server_update()
             local active = 0
             for i = 0, (MAX_PLAYERS - 1) do
                 local m = gMarioStates[i]
-                if active_player(m) ~= 0 and m.health > 0xFF and not gPlayerSyncTable[i].finished then
+                if active_player(m) ~= 0 and m.health > 0xFF and not gFloodPlayers[i].finished then
                     active = active + 1
                 end
             end
@@ -150,7 +157,7 @@ local function server_update()
                         -- move to the next level
                         local finished = 0
                         for i = 0, (MAX_PLAYERS - 1) do
-                            if active_player(gMarioStates[i]) ~= 0 and gPlayerSyncTable[i].finished then
+                            if active_player(gMarioStates[i]) ~= 0 and gFloodPlayers[i].finished then
                                 finished = finished + 1
                             end
                         end
@@ -213,7 +220,7 @@ local function update()
                 local finished = 0
                 local string = "Survivors:"
                 for i = 0, (MAX_PLAYERS - 1) do
-                    if gNetworkPlayers[i].connected and gPlayerSyncTable[i].finished then
+                    if gNetworkPlayers[i].connected and gFloodPlayers[i].finished then
                         string = string .. "\n" .. network_get_player_text_color_string(i) .. gNetworkPlayers[i].name .. " - " .. gFloodPlayers[i].time
                         finished = finished + 1
                     end
@@ -230,7 +237,7 @@ local function update()
             listedSurvivors = false
             mario_set_full_health(gMarioStates[0])
             gLevels[gGlobalSyncTable.level].time = 0
-            gPlayerSyncTable[0].finished = false
+            network_send_finished(false)
             warp_to_level(gGlobalSyncTable.level, gLevels[gGlobalSyncTable.level].area, act)
         end
     end
@@ -303,10 +310,10 @@ local function mario_update(m)
     end
 
     -- check if the player has reached the end of the level 
-    if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gPlayerSyncTable[0].finished and ((gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and (m.action & ACT_FLAG_ON_POLE) ~= 0)
+    if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gFloodPlayers[0].finished and ((gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and (m.action & ACT_FLAG_ON_POLE) ~= 0)
     or (gNetworkPlayers[0].currLevelNum == LEVEL_CTT and m.action == ACT_JUMBO_STAR_CUTSCENE))
     and vec3f_dist(m.pos, gLevels[gGlobalSyncTable.level].goalPos) < 600 then
-        gPlayerSyncTable[0].finished = true
+        network_send_finished(true)
 
         local string = ""
         if gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and not (game == GAME_STAR_ROAD and gNetworkPlayers[0].currLevelNum == LEVEL_RR) then
@@ -322,7 +329,7 @@ local function mario_update(m)
     end
 
     -- update spectator if finished, manage other things if not
-    if gPlayerSyncTable[0].finished then
+    if gFloodPlayers[0].finished then
         mario_set_full_health(m)
         if network_player_connected_count() > 1 and m.action ~= ACT_JUMBO_STAR_CUTSCENE then
             set_mario_spectator(m)
@@ -332,7 +339,7 @@ local function mario_update(m)
             -- Different Water Types
             local water = obj_get_first_with_behavior_id(id_bhvWater)
             if water ~= nil and m.action ~= ACT_SPECTATOR then
-                switch(water.oAnimState, {
+                switch(gGlobalSyncTable.materialPhys and water.oAnimState or 0, {
                     ['default'] = function()
                         if m.pos.y + 150 < gGlobalSyncTable.waterLevel then
                             m.health = m.health - 30
@@ -384,6 +391,7 @@ end
 local function on_hud_render()
     hud_hide()
     set_world_color(255, 255, 255, 255)
+    djui_hud_set_color(255, 255, 255, 0)
     local water = obj_get_first_with_behavior_id(id_bhvWater)
     if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and water ~= nil then
         djui_hud_set_resolution(RESOLUTION_DJUI)
@@ -392,18 +400,22 @@ local function on_hud_render()
             switch(water.oAnimState, {
                 [FLOOD_WATER] = function()
                     set_world_color(0, 20, 200, 120)
+                    djui_hud_set_color(0, 20, 200, 60)
                 end,
                 [FLOOD_LAVA] = function()
-                    set_world_color(200, 0, 0, 220)
+                    set_world_color(200, 20, 20, 220)
+                    djui_hud_set_color(200, 20, 20, 110)
                 end,
                 [FLOOD_SAND] = function()
-                    set_world_color(254, 193, 121, 220)
+                    set_world_color(254, 193, 70, 220)
+                    djui_hud_set_color(254, 193, 70, 110)
                 end,
                 [FLOOD_MUD] = function()
                     set_world_color(74, 123, 0, 220)
+                    djui_hud_set_color(74, 123, 0, 110)
                 end
             })
-            --djui_hud_render_rect(0, 0, djui_hud_get_screen_width(), djui_hud_get_screen_height())
+            djui_hud_render_rect(0, 0, djui_hud_get_screen_width(), djui_hud_get_screen_height())
         end
     end
 
@@ -496,6 +508,10 @@ local function on_level_init()
         )
     end
 
+    if gLevels[gNetworkPlayers[0].currLevelNum] == nil then
+        warp_to_level(LEVEL_LOBBY, 1, 0)
+        return
+    end
     local pos = gLevels[gNetworkPlayers[0].currLevelNum].goalPos
     if pos == nil then return end
 
@@ -701,11 +717,6 @@ hook_event(HOOK_ON_LEVEL_INIT, on_level_init)
 hook_event(HOOK_ON_WARP, on_warp)
 hook_event(HOOK_ON_PLAYER_CONNECTED, on_player_connected)
 
-local floodButtonIndexSpeed = 0
 if network_is_server() then
     hook_chat_command("flood", "\\#00ffff\\[start|speed|ttc-speed|speedrun|scoreboard]", on_flood_command)
-end
-
-for i = 0, (MAX_PLAYERS - 1) do
-    gPlayerSyncTable[i].finished = false
 end
