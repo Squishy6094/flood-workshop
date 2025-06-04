@@ -20,7 +20,7 @@ gGlobalSyncTable.timer = ROUND_COOLDOWN
 gGlobalSyncTable.level = LEVEL_BOB
 gGlobalSyncTable.waterLevel = -20000
 gGlobalSyncTable.speedMultiplier = 1
-gGlobalSyncTable.materialPhys = false
+gGlobalSyncTable.materialPhys = true
 
 local sFlagIconPrevPos = { x = 0, y = 0 }
 
