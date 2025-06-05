@@ -102,12 +102,6 @@ function split(s)
     return result
 end
 
-function djui_hud_set_adjusted_color(r, g, b, a)
-    local multiplier = 1
-    if is_game_paused() then multiplier = 0.5 end
-    djui_hud_set_color(r * multiplier, g * multiplier, b * multiplier, a)
-end
-
 function SEQUENCE_ARGS(priority, seqId)
     return ((priority << 8) | seqId)
 end
@@ -157,7 +151,7 @@ function timestamp(seconds)
     local minutes = math.floor(seconds / 60)
     local milliseconds = math.floor((seconds - math.floor(seconds)) * 1000)
     seconds = math.floor(seconds) % 60
-    return string.format("%d:%02d:%03d", minutes, seconds, milliseconds)
+    return minutes > 0 and string.format("%d:%02d.%03d", minutes, seconds, milliseconds) or string.format("%01d.%03d", seconds, milliseconds)
 end
 
 function set_world_color(r, g, b, a)
@@ -179,4 +173,12 @@ function set_world_color(r, g, b, a)
     set_vertex_color(0, cr)
     set_vertex_color(1, cg)
     set_vertex_color(2, cb)
+end
+
+function table_shallow_copy(t)
+    local t2 = {}
+    for k,v in pairs(t) do
+        t2[k] = v
+    end
+    return t2
 end

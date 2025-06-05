@@ -33,12 +33,22 @@ for i = 0, MAX_PLAYERS - 1 do
     gFloodPlayers[i] = {
         index = network_global_index_from_local(i),
         finished = false,
-        time = "0.000",
+        time = 0,
+        timeFull = 0,
     }
 end
 
 local function network_send_time(time)
+    if time == nil then time = gFloodPlayers[0].time end
     gFloodPlayers[0].time = time
+    gLevels[gGlobalSyncTable.level].time = time
+
+    local total = 0
+    for i = 1, FLOOD_LEVEL_COUNT do
+        local level = gMapRotation[i]
+        total = total + gLevels[level].time
+    end
+    gFloodPlayers[0].timeFull = total
     network_send(true, gFloodPlayers[0])
 end
 
@@ -96,7 +106,7 @@ local function get_modifiers_string()
         moveset = true
     end
     if _G.charSelectExists then
-        local charMoveset = _G.charSelect.character_get_moveset(_G.charSelect.character_get_current_number(0)) ~= {}
+        local charMoveset = #_G.charSelect.character_get_moveset(_G.charSelect.character_get_current_number(0)) > 0
         local charToggle = _G.charSelect.get_options_status(_G.charSelect.optionTableRef.localMoveset) ~= 0 
         if charMoveset and charToggle then
             moveset = true
@@ -120,7 +130,7 @@ function level_restart()
     round_start()
     init_single_mario(gMarioStates[0])
     mario_set_full_health(gMarioStates[0])
-    gLevels[gGlobalSyncTable.level].time = 0
+    network_send_time(0)
     warp_to_level(gGlobalSyncTable.level, gLevels[gGlobalSyncTable.level].area, get_dest_act())
 end
 
@@ -221,7 +231,7 @@ local function update()
                 local string = "Survivors:"
                 for i = 0, (MAX_PLAYERS - 1) do
                     if gNetworkPlayers[i].connected and gFloodPlayers[i].finished then
-                        string = string .. "\n" .. network_get_player_text_color_string(i) .. gNetworkPlayers[i].name .. " - " .. gFloodPlayers[i].time
+                        string = string .. "\n" .. network_get_player_text_color_string(i) .. gNetworkPlayers[i].name .. " - " .. timestamp(gFloodPlayers[i].time)
                         finished = finished + 1
                     end
                 end
@@ -236,7 +246,7 @@ local function update()
         if gNetworkPlayers[0].currLevelNum ~= gGlobalSyncTable.level or gNetworkPlayers[0].currActNum ~= act then
             listedSurvivors = false
             mario_set_full_health(gMarioStates[0])
-            gLevels[gGlobalSyncTable.level].time = 0
+            network_send_time(0)
             network_send_finished(false)
             warp_to_level(gGlobalSyncTable.level, gLevels[gGlobalSyncTable.level].area, act)
         end
@@ -286,7 +296,6 @@ local function mario_update(m)
     if gGlobalSyncTable.roundState == ROUND_STATE_INACTIVE then
         mario_set_full_health(m)
         m.peakHeight = m.pos.y
-        return
     end
 
     -- dialog boxes
@@ -323,8 +332,9 @@ local function mario_update(m)
             string = string .. "\\#00ff00\\You escaped the \\#ffff00\\final\\#00ff00\\ flood! Congratulations!\n"
             play_music(0, SEQUENCE_ARGS(8, SEQ_EVENT_CUTSCENE_VICTORY), 0)
         end
-        string = string .. "\\#dcdcdc\\Time: " .. string.format("%.3f", gLevels[gGlobalSyncTable.level].time / 30) .. get_modifiers_string()
-        network_send_time(string.format("%.3f", gLevels[gGlobalSyncTable.level].time / 30) .. get_modifiers_string())
+        network_send_time()
+        string = string .. "\\#dcdcdc\\Time: " .. timestamp(gFloodPlayers[0].time) .. get_modifiers_string() .. "\n"
+        string = string .. "\\#dcdcdc\\Total Time: " .. timestamp(gFloodPlayers[0].timeFull)
         djui_chat_message_create(string)
     end
 
@@ -344,6 +354,8 @@ local function mario_update(m)
                         if m.pos.y + 150 < gGlobalSyncTable.waterLevel then
                             m.health = m.health - 30
                         end
+                        m.vel.y = m.vel.y + 2
+                        m.peakHeight = m.pos.y
                     end,
                     [FLOOD_LAVA] = function()
                         if (not (m.flags & MARIO_METAL_CAP) ~= 0) then
@@ -366,7 +378,7 @@ local function mario_update(m)
                     end,
                     --[[
                     [FLOOD_MUD] = function()
-                        djui_hud_set_adjusted_color(74, 123, 0, 220)
+                        djui_hud_set_color(74, 123, 0, 220)
                     end
                     ]]
                 })
@@ -383,7 +395,7 @@ local function mario_update(m)
                 set_mario_spectator(m)
             end
         else
-            gLevels[gGlobalSyncTable.level].time = gLevels[gGlobalSyncTable.level].time + 1
+            gFloodPlayers[0].time = gFloodPlayers[0].time + 1
         end
     end
 end
@@ -393,7 +405,7 @@ local function on_hud_render()
     set_world_color(255, 255, 255, 255)
     djui_hud_set_color(255, 255, 255, 0)
     local water = obj_get_first_with_behavior_id(id_bhvWater)
-    if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and water ~= nil then
+    if water ~= nil then
         djui_hud_set_resolution(RESOLUTION_DJUI)
 
         if gLakituState.pos.y < gGlobalSyncTable.waterLevel - 10 then
@@ -429,7 +441,7 @@ local function on_hud_render()
         local dX = clampf(out.x - 5, 0, djui_hud_get_screen_width() - 19.2)
         local dY = clampf(out.y - 20, 0, djui_hud_get_screen_height() - 19.2)
 
-        djui_hud_set_adjusted_color(255, 255, 255, 200)
+        djui_hud_set_color(255, 255, 255, 200)
         djui_hud_render_texture_interpolated(TEX_FLOOD_FLAG, sFlagIconPrevPos.x, sFlagIconPrevPos.y, 0.15, 0.15, dX, dY, 0.15, 0.15)
 
         sFlagIconPrevPos.x = dX
@@ -441,7 +453,7 @@ local function on_hud_render()
         if gGlobalSyncTable.roundState == ROUND_STATE_INACTIVE then
             text = if_then_else(network_player_connected_count() > 1, "Round starts in " .. tostring(math_floor(gGlobalSyncTable.timer / 30)), "Type '/flood start' to start a round")
         elseif gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level then
-            text = tostring(string.format("%.3f", gLevels[gGlobalSyncTable.level].time / 30)) .. " seconds" .. get_modifiers_string()
+            text = timestamp(gFloodPlayers[0].time) .. get_modifiers_string()
         end
     end
 
@@ -449,9 +461,9 @@ local function on_hud_render()
     local width = djui_hud_measure_text(text) * scale
     local x = (djui_hud_get_screen_width() - width) * 0.5
 
-    djui_hud_set_adjusted_color(0, 0, 0, 128)
+    djui_hud_set_color(0, 0, 0, 128)
     djui_hud_render_rect(x - 6, 0, width + 12, 16)
-    djui_hud_set_adjusted_color(255, 255, 255, 255)
+    djui_hud_set_color(255, 255, 255, 255)
     djui_hud_print_text(text, x, 0, scale)
 
     hud_render_power_meter(gMarioStates[0].health, djui_hud_get_screen_width() - 64, 0, 64, 64)
@@ -506,6 +518,19 @@ local function on_level_init()
             0, gGlobalSyncTable.waterLevel, 0,
             nil
         )
+    else
+        if gNetworkPlayers[0].currLevelNum == LEVEL_LOBBY then
+            if network_is_server() then
+                gGlobalSyncTable.waterLevel = find_floor_height(gMarioStates[0].pos.x, gMarioStates[0].pos.y, gMarioStates[0].pos.z) - 200
+            end
+
+            spawn_non_sync_object(
+                id_bhvWater,
+                E_MODEL_FLOOD,
+                0, gGlobalSyncTable.waterLevel, 0,
+                nil
+            )
+        end
     end
 
     if gLevels[gNetworkPlayers[0].currLevelNum] == nil then
@@ -712,7 +737,7 @@ end
 
 hook_event(HOOK_UPDATE, update)
 hook_event(HOOK_MARIO_UPDATE, mario_update)
-hook_event(HOOK_ON_HUD_RENDER, on_hud_render)
+hook_event(HOOK_ON_HUD_RENDER_BEHIND, on_hud_render)
 hook_event(HOOK_ON_LEVEL_INIT, on_level_init)
 hook_event(HOOK_ON_WARP, on_warp)
 hook_event(HOOK_ON_PLAYER_CONNECTED, on_player_connected)

@@ -143,16 +143,6 @@ hook_behavior(id_bhvWaterLevelDiamond, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj
 hook_behavior(id_bhvKoopaRaceEndpoint, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
 
 --- @param m MarioState
-local function before_phys_step(m)
-    if m.playerIndex ~= 0 then return end
-
-    if m.pos.y + 40 < gGlobalSyncTable.waterLevel and gNetworkPlayers[m.playerIndex].currLevelNum == gGlobalSyncTable.level then
-        m.vel.y = m.vel.y + 2
-        m.peakHeight = m.pos.y
-    end
-end
-
---- @param m MarioState
 --- @param o Object
 local function allow_interact(m, o)
     if m.action == ACT_SPECTATOR or
@@ -201,7 +191,6 @@ local function on_packet_receive(dataTable)
     if dataTable.restart then level_restart() end
 end
 
-hook_event(HOOK_BEFORE_PHYS_STEP, before_phys_step)
 hook_event(HOOK_ALLOW_INTERACT, allow_interact)
 hook_event(HOOK_ON_DEATH, on_death)
 hook_event(HOOK_ON_PAUSE_EXIT, on_pause_exit)
