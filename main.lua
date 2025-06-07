@@ -20,7 +20,7 @@ gGlobalSyncTable.timer = ROUND_COOLDOWN
 gGlobalSyncTable.level = LEVEL_BOB
 gGlobalSyncTable.waterLevel = -20000
 gGlobalSyncTable.speedMultiplier = 1
-gGlobalSyncTable.materialPhys = true
+gGlobalSyncTable.materialPhys = mod_storage_load_bool("materialPhys") and mod_storage_load_bool("materialPhys") or true
 
 local sFlagIconPrevPos = { x = 0, y = 0 }
 
@@ -219,13 +219,10 @@ local function update()
 
     if gGlobalSyncTable.roundState == ROUND_STATE_INACTIVE then
         if gNetworkPlayers[0].currLevelNum ~= LEVEL_LOBBY or gNetworkPlayers[0].currActNum ~= 0 then
-            if speedrun_mode() then
-                level_restart()
-            end
 
             warp_to_level(LEVEL_LOBBY, 1, 0)
 
-            if not listedSurvivors and globalTimer > 5 then
+            if network_player_connected_count() > 1 and not listedSurvivors and globalTimer > 5 then
                 listedSurvivors = true
                 local finished = 0
                 local string = "Survivors:"
@@ -239,6 +236,10 @@ local function update()
                     string = string .. "\n\\#ff0000\\None"
                 end
                 djui_chat_message_create(string)
+            end
+
+            if speedrun_mode() then
+                level_restart()
             end
         end
     elseif gGlobalSyncTable.roundState == ROUND_STATE_ACTIVE then
@@ -323,6 +324,7 @@ local function mario_update(m)
     or (gNetworkPlayers[0].currLevelNum == LEVEL_CTT and m.action == ACT_JUMBO_STAR_CUTSCENE))
     and vec3f_dist(m.pos, gLevels[gGlobalSyncTable.level].goalPos) < 600 then
         network_send_finished(true)
+        network_send_time()
 
         local string = ""
         if gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and not (game == GAME_STAR_ROAD and gNetworkPlayers[0].currLevelNum == LEVEL_RR) then
@@ -332,7 +334,6 @@ local function mario_update(m)
             string = string .. "\\#00ff00\\You escaped the \\#ffff00\\final\\#00ff00\\ flood! Congratulations!\n"
             play_music(0, SEQUENCE_ARGS(8, SEQ_EVENT_CUTSCENE_VICTORY), 0)
         end
-        network_send_time()
         string = string .. "\\#dcdcdc\\Time: " .. timestamp(gFloodPlayers[0].time) .. get_modifiers_string() .. "\n"
         string = string .. "\\#dcdcdc\\Total Time: " .. timestamp(gFloodPlayers[0].timeFull)
         djui_chat_message_create(string)
@@ -408,7 +409,7 @@ local function on_hud_render()
     if water ~= nil then
         djui_hud_set_resolution(RESOLUTION_DJUI)
 
-        if gLakituState.pos.y < gGlobalSyncTable.waterLevel - 10 then
+        if gLakituState.pos.y < gGlobalSyncTable.waterLevel then
             switch(water.oAnimState, {
                 [FLOOD_WATER] = function()
                     set_world_color(0, 20, 200, 120)
@@ -521,15 +522,16 @@ local function on_level_init()
     else
         if gNetworkPlayers[0].currLevelNum == LEVEL_LOBBY then
             if network_is_server() then
-                gGlobalSyncTable.waterLevel = find_floor_height(gMarioStates[0].pos.x, gMarioStates[0].pos.y, gMarioStates[0].pos.z) - 200
+                gGlobalSyncTable.waterLevel = get_water_level(0) and get_water_level(0) or find_floor_height(gMarioStates[0].pos.x, gMarioStates[0].pos.y, gMarioStates[0].pos.z) - 200
             end
 
-            spawn_non_sync_object(
+            water = spawn_non_sync_object(
                 id_bhvWater,
                 E_MODEL_FLOOD,
                 0, gGlobalSyncTable.waterLevel, 0,
                 nil
             )
+            water.oAnimState = gLevels[LEVEL_LOBBY] and gLevels[LEVEL_LOBBY].type or FLOOD_WATER
         end
     end
 
@@ -560,6 +562,12 @@ local function on_level_init()
             end
         )
     end
+end
+
+if _G.charSelectExists then
+    _G.charSelect.hook_allow_menu_open(function()
+        return gGlobalSyncTable.roundState == ROUND_STATE_INACTIVE
+    end)
 end
 
 -- dynos warps mario back to castle grounds facing the wrong way, likely something from the title screen
@@ -599,7 +607,7 @@ local function on_start_command(msg)
     end
 
     if msg == "random" then
-        gGlobalSyncTable.level = gLevels[math_random(1, FLOOD_LEVEL_COUNT)]
+        gGlobalSyncTable.level = math_random(1, FLOOD_LEVEL_COUNT)
     else
         local override = tonumber(msg)
         if override ~= nil then
@@ -742,6 +750,14 @@ hook_event(HOOK_ON_LEVEL_INIT, on_level_init)
 hook_event(HOOK_ON_WARP, on_warp)
 hook_event(HOOK_ON_PLAYER_CONNECTED, on_player_connected)
 
+
+
 if network_is_server() then
     hook_chat_command("flood", "\\#00ffff\\[start|speed|ttc-speed|speedrun|scoreboard]", on_flood_command)
+    hook_mod_menu_text("Host Settings")
+    local loadMatPhys = mod_storage_load_bool("materialPhys")
+    hook_mod_menu_checkbox("Material Physics", loadMatPhys ~= nil and loadMatPhys or true, function(index, value)
+        gGlobalSyncTable.materialPhys = value
+        mod_storage_save_bool("materialPhys", value)
+    end)
 end

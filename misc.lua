@@ -30,7 +30,7 @@ local function bhv_water_loop(o)
 
     if game == GAME_VANILLA and gNetworkPlayers[0].currLevelNum ~= LEVEL_WDW and gNetworkPlayers[0].currLevelNum ~= LEVEL_HMC then
         for i = 0, 2 do
-            if get_water_level(i) < gGlobalSyncTable.waterLevel then
+            if get_water_level(i) <= gGlobalSyncTable.waterLevel then
                 set_water_level(i, -20000, false)
             end
         end
