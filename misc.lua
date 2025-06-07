@@ -25,7 +25,8 @@ local function bhv_water_loop(o)
     o.oPosY = gGlobalSyncTable.waterLevel
 
     if game == GAME_VANILLA and gGlobalSyncTable.level ~= LEVEL_SSL then
-        o.oFaceAngleYaw = o.oTimer * 5 * (gLevels[gNetworkPlayers[0].currLevelNum].speed or 1)
+        local level = gLevels[gNetworkPlayers[0].currLevelNum]
+        o.oFaceAngleYaw = o.oTimer * 5 * ((level ~= nil and level.speed ~= nil) and level.speed or 1)
     end
 
     if game == GAME_VANILLA and gNetworkPlayers[0].currLevelNum ~= LEVEL_WDW and gNetworkPlayers[0].currLevelNum ~= LEVEL_HMC then

@@ -749,8 +749,7 @@ hook_event(HOOK_ON_HUD_RENDER_BEHIND, on_hud_render)
 hook_event(HOOK_ON_LEVEL_INIT, on_level_init)
 hook_event(HOOK_ON_WARP, on_warp)
 hook_event(HOOK_ON_PLAYER_CONNECTED, on_player_connected)
-
-
+hook_event(HOOK_USE_ACT_SELECT, function() return false end)
 
 if network_is_server() then
     hook_chat_command("flood", "\\#00ffff\\[start|speed|ttc-speed|speedrun|scoreboard]", on_flood_command)
