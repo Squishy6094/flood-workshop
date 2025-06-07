@@ -11,8 +11,9 @@ local get_environment_region,set_environment_region,set_override_far,cur_obj_sca
 
 --- @param o Object
 local function bhv_water_init(o)
+    local level = gLevels[gNetworkPlayers[0].currLevelNum]
     o.oFlags = OBJ_FLAG_UPDATE_GFX_POS_AND_ANGLE
-    o.oAnimState = gLevels[gGlobalSyncTable.level].type
+    o.oAnimState = level and level.type or FLOOD_WATER
 
     o.header.gfx.skipInViewCheck = true
 
@@ -22,10 +23,10 @@ end
 
 --- @param o Object
 local function bhv_water_loop(o)
+    local level = gLevels[gNetworkPlayers[0].currLevelNum]
     o.oPosY = gGlobalSyncTable.waterLevel
 
     if game == GAME_VANILLA and gGlobalSyncTable.level ~= LEVEL_SSL then
-        local level = gLevels[gNetworkPlayers[0].currLevelNum]
         o.oFaceAngleYaw = o.oTimer * 5 * ((level ~= nil and level.speed ~= nil) and level.speed or 1)
     end
 

@@ -66,6 +66,9 @@ end
 
 --- @param m MarioState
 function set_mario_spectator(m)
+    if gNetworkPlayers[m.playerIndex].currLevelNum == LEVEL_LOBBY then
+        return
+    end
     if m.action ~= ACT_SPECTATOR then
         sPlayerFirstPerson.pos = { x = m.pos.x, y = if_then_else(m.health > 0xFF, m.pos.y, gGlobalSyncTable.waterLevel), z = m.pos.z }
     end
@@ -82,7 +85,7 @@ local function act_spectator(m)
     m.faceAngle.x = 0
     m.faceAngle.z = 0
 
-    if gPlayerSyncTable[m.playerIndex].finished then
+    if gFloodPlayers[m.playerIndex].finished then
         m.marioObj.header.gfx.node.flags = m.marioObj.header.gfx.node.flags & ~GRAPH_RENDER_ACTIVE
         local goalPos = gLevels[gGlobalSyncTable.level].goalPos
         vec3f_set(m.pos, goalPos.x, goalPos.y + 600, goalPos.z)

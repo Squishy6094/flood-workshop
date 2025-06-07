@@ -531,7 +531,6 @@ local function on_level_init()
                 0, gGlobalSyncTable.waterLevel, 0,
                 nil
             )
-            water.oAnimState = gLevels[LEVEL_LOBBY] and gLevels[LEVEL_LOBBY].type or FLOOD_WATER
         end
     end
 
