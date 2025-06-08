@@ -182,3 +182,7 @@ function table_shallow_copy(t)
     end
     return t2
 end
+
+function vec3f_dist_2d(v1, v2)
+    return math.sqrt(math.abs(v1.x - v2.x)*2 + math.abs(v1.z - v2.z)*2)
+end

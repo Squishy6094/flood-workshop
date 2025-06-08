@@ -320,9 +320,10 @@ local function mario_update(m)
     end
 
     -- check if the player has reached the end of the level 
+    local goalPos = gLevels[gGlobalSyncTable.level].goalPos
     if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gFloodPlayers[0].finished and ((gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and (m.action & ACT_FLAG_ON_POLE) ~= 0)
     or (gNetworkPlayers[0].currLevelNum == LEVEL_CTT and m.action == ACT_JUMBO_STAR_CUTSCENE))
-    and vec3f_dist(m.pos, gLevels[gGlobalSyncTable.level].goalPos) < 600 then
+    and (vec3f_dist_2d(m.pos, goalPos) < 10 and m.pos.y > goalPos.y and m.pos.y < goalPos.y + 650) then
         network_send_finished(true)
         network_send_time()
 
