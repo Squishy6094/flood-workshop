@@ -321,9 +321,8 @@ local function mario_update(m)
 
     -- check if the player has reached the end of the level 
     local goalPos = gLevels[gGlobalSyncTable.level].goalPos
-    if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gFloodPlayers[0].finished and ((gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and (m.action & ACT_FLAG_ON_POLE) ~= 0)
-    or (gNetworkPlayers[0].currLevelNum == LEVEL_CTT and m.action == ACT_JUMBO_STAR_CUTSCENE))
-    and (vec3f_dist_2d(m.pos, goalPos) < 10 and m.pos.y > goalPos.y and m.pos.y < goalPos.y + 650) then
+    local atGoalPoal = (vec3f_dist_2d(m.pos, goalPos) < 10 and m.pos.y > goalPos.y and m.pos.y < goalPos.y + 650)
+    if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gFloodPlayers[0].finished and (((m.action & ACT_FLAG_ON_POLE) ~= 0 and atGoalPoal) or m.action == ACT_JUMBO_STAR_CUTSCENE) then
         network_send_finished(true)
         network_send_time()
 
@@ -350,7 +349,7 @@ local function mario_update(m)
         if m.pos.y < gGlobalSyncTable.waterLevel then
             -- Different Water Types
             local water = obj_get_first_with_behavior_id(id_bhvWater)
-            if water ~= nil and m.action ~= ACT_SPECTATOR then
+            if water ~= nil and gFloodPlayers[0].time > 10 and m.action ~= ACT_SPECTATOR then
                 switch(gGlobalSyncTable.materialPhys and water.oAnimState or 0, {
                     ['default'] = function()
                         if m.pos.y + 150 < gGlobalSyncTable.waterLevel then
@@ -363,6 +362,7 @@ local function mario_update(m)
                         if (not (m.flags & MARIO_METAL_CAP) ~= 0) then
                             m.hurtCounter = m.hurtCounter + (m.flags & MARIO_CAP_ON_HEAD) and 12 or 18;
                         end
+                        m.pos.y = gGlobalSyncTable.waterLevel + 10
                         set_mario_action(m, ACT_LAVA_BOOST, 0)
                     end,
                     [FLOOD_SAND] = function()
