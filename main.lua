@@ -44,7 +44,7 @@ local function network_send_time(time)
     gLevels[gGlobalSyncTable.level].time = time
 
     local total = 0
-    for i = 1, FLOOD_LEVEL_COUNT do
+    for i = 1, #gMapRotation do
         local level = gMapRotation[i]
         total = total + gLevels[level].time
     end
@@ -75,10 +75,14 @@ function speedrun_mode(mode)
     end
 end
 
+local function is_final_level()
+    return gNetworkPlayers[0].currLevelNum == gMapRotation[#gMapRotation]
+end
+
 -- runs serverside
 local function round_start()
     gGlobalSyncTable.roundState = ROUND_STATE_ACTIVE
-    gGlobalSyncTable.timer = if_then_else(gGlobalSyncTable.level == LEVEL_CTT or (gGlobalSyncTable.level == LEVEL_RR and game == GAME_STAR_ROAD), 730, 100)
+    gGlobalSyncTable.timer = if_then_else(is_final_level(), 730, 100)
 end
 
 -- runs serverside
@@ -154,7 +158,7 @@ local function server_update()
                         dead = dead + 1
                     end
                 end
-                if dead == network_player_connected_count() or (speedrun_mode() and gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT) then
+                if dead == network_player_connected_count() or (speedrun_mode() and not is_final_level()) then
                     gGlobalSyncTable.timer = 0
                 end
 
@@ -182,7 +186,7 @@ local function server_update()
                             end
 
                             position = position + 1
-                            if position > FLOOD_LEVEL_COUNT - FLOOD_BONUS_LEVELS then
+                            if position > #gMapRotation --[[FLOOD_LEVEL_COUNT - FLOOD_BONUS_LEVELS]] then
                                 position = 1
                             end
 
@@ -305,17 +309,14 @@ local function mario_update(m)
     end
 
     -- manage CTT
-    if gNetworkPlayers[0].currLevelNum == LEVEL_CTT then
-        m.peakHeight = m.pos.y
-
+    if is_final_level() then
         local star = obj_get_first_with_behavior_id(id_bhvFinalStar)
         if star ~= nil and obj_check_hitbox_overlap(m.marioObj, star) and m.action ~= ACT_JUMBO_STAR_CUTSCENE then
             spawn_mist_particles()
             set_mario_action(m, ACT_JUMBO_STAR_CUTSCENE, 0)
-        end
-
-        if m.action == ACT_JUMBO_STAR_CUTSCENE and m.actionTimer >= 499 then
-            set_mario_spectator(m)
+            m.pos.x = star.oPosX
+            m.pos.y = star.oPosY
+            m.pos.z = star.oPosZ
         end
     end
 
@@ -327,7 +328,7 @@ local function mario_update(m)
         network_send_time()
 
         local string = ""
-        if gNetworkPlayers[0].currLevelNum ~= LEVEL_CTT and not (game == GAME_STAR_ROAD and gNetworkPlayers[0].currLevelNum == LEVEL_RR) then
+        if not is_final_level() then
             string = string .. "\\#00ff00\\You escaped the flood!\n"
             play_race_fanfare()
         else
@@ -541,12 +542,13 @@ local function on_level_init()
     end
     local pos = gLevels[gNetworkPlayers[0].currLevelNum].goalPos
     if pos == nil then return end
-
-    if gNetworkPlayers[0].currLevelNum == LEVEL_CTT then
+    local floorHeight = find_floor_height(pos.x, pos.y, pos.z)
+    pos.y = (pos.y - 1000 < floorHeight) and floorHeight or pos.y
+    if gNetworkPlayers[0].currLevelNum == gMapRotation[#gMapRotation] then
         spawn_non_sync_object(
             id_bhvFinalStar,
             E_MODEL_STAR,
-            pos.x, pos.y, pos.z,
+            pos.x, pos.y + 400, pos.z,
             nil
         )
     else

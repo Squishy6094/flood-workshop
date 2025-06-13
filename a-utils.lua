@@ -186,3 +186,169 @@ end
 function vec3f_dist_2d(v1, v2)
     return math.sqrt(math.abs(v1.x - v2.x)*2 + math.abs(v1.z - v2.z)*2)
 end
+
+-- More Flexable Jumbo Star Cutsceans
+
+--[[
+ACT_JUMBO_STAR_CUTSCENE = allocate_mario_action(ACT_FLAG_AIR | ACT_FLAG_INTANGIBLE)
+log_to_console("init")
+local sJumboStarKeyframes = {
+    { x = 20, y = 0, z = 678, w = -2916 },      { x = 30, y = 0, z = 680, w = -3500 },      { x = 40, y = 1000, z = 700, w = -4000 },
+    { x = 50, y = 2500, z = 750, w = -3500 },   { x = 50, y = 3500, z = 800, w = -2000 },   { x = 50, y = 4000, z = 850, w = 0 },
+    { x = 50, y = 3500, z = 900, w = 2000 },    { x = 50, y = 2000, z = 950, w = 3500 },    { x = 50, y = 0, z = 1000, w = 4000 },
+    { x = 50, y = -2000, z = 1050, w = 3500 },  { x = 50, y = -3500, z = 1100, w = 2000 },  { x = 50, y = -4000, z = 1150, w = 0 },
+    { x = 50, y = -3500, z = 1200, w = -2000 }, { x = 50, y = -2000, z = 1250, w = -3500 }, { x = 50, y = 0, z = 1300, w = -4000 },
+    { x = 50, y = 2000, z = 1350, w = -3500 },  { x = 50, y = 3500, z = 1400, w = -2000 },  { x = 50, y = 4000, z = 1450, w = 0 },
+    { x = 50, y = 3500, z = 1500, w = 2000 },   { x = 50, y = 2000, z = 1600, w = 3500 },   { x = 50, y = 0, z = 1700, w = 4000 },
+    { x = 50, y = -2000, z = 1800, w = 3500 },  { x = 50, y = -3500, z = 1900, w = 2000 },  { x = 30, y = -4000, z = 2000, w = 0 },
+    { x = 0, y = -3500, z = 2100, w = -2000 },  { x = 0, y = -2000, z = 2200, w = -3500 },  { x = 0, y = 0, z = 2300, w = -4000 },
+}
+
+local JUMBO_STAR_CUTSCENE_FALLING = 0
+local JUMBO_STAR_CUTSCENE_TAKING_OFF = 1
+local JUMBO_STAR_CUTSCENE_FLYING = 2
+
+local function advance_cutscene_step(m)
+    if not m then return end
+    m.actionState = 0;
+    m.actionTimer = 0;
+    m.actionArg = m.actionArg + 1;
+end
+
+function jumbo_star_cutscene_falling(m)
+    if not m then return end
+
+    if m.actionState == 0 then
+        m.input = m.input | INPUT_A_DOWN
+        m.flags = m.flags | (MARIO_WING_CAP | MARIO_CAP_ON_HEAD)
+
+        m.faceAngle.y = -0x8000 -- Yaw
+        --m.pos.x = m.pos.x + 100.0 * m.playerIndex
+        --m.pos.z = 0.0
+
+        mario_set_forward_vel(m, 0.0)
+        set_character_animation(m, CHAR_ANIM_GENERAL_FALL)
+
+        if perform_air_step(m, 1) == AIR_STEP_LANDED then
+            play_cutscene_music(SEQUENCE_ARGS(15, SEQ_EVENT_CUTSCENE_VICTORY))
+            play_mario_landing_sound(m, SOUND_ACTION_TERRAIN_LANDING)
+            m.actionState = m.actionState + 1
+        end
+    else
+        set_character_animation(m, CHAR_ANIM_GENERAL_LAND)
+        if is_anim_at_end(m) then
+            m.statusForCamera.cameraEvent = CAM_EVENT_START_GRAND_STAR
+            advance_cutscene_step(m)
+        end
+    end
+end
+
+function jumbo_star_cutscene_taking_off(m)
+    if not m then return 0 end
+    local marioObj = m.marioObj
+
+    if m.actionState == 0 then
+        set_character_animation(m, CHAR_ANIM_FINAL_BOWSER_RAISE_HAND_SPIN)
+        marioObj.oMarioJumboStarCutscenePosZ = m.pos.z
+
+        if is_anim_past_end(m) then
+            play_mario_landing_sound(m, SOUND_ACTION_TERRAIN_LANDING)
+            m.actionState = m.actionState + 1
+        end
+    else
+        local animFrame = set_character_animation(m, CHAR_ANIM_FINAL_BOWSER_WING_CAP_TAKE_OFF)
+        if animFrame == 3 or animFrame == 28 or animFrame == 60 then
+            play_sound_and_spawn_particles(m, SOUND_ACTION_TERRAIN_JUMP, 1)
+        end
+        if animFrame >= 3 then
+            marioObj.oMarioJumboStarCutscenePosZ = marioObj.oMarioJumboStarCutscenePosZ - 32.0
+        end
+
+        if animFrame == 3 then
+            play_character_sound_offset(m, CHAR_SOUND_YAH_WAH_HOO, math.random(0,2)<<16)
+        elseif animFrame == 28 then
+            play_character_sound(m, CHAR_SOUND_HOOHOO)
+        elseif animFrame == 60 then
+            play_character_sound(m, CHAR_SOUND_YAHOO)
+        end
+
+        set_mario_particle_flags(m, PARTICLE_SPARKLES, 0)
+
+        if is_anim_past_end(m) then
+            advance_cutscene_step(m)
+        end
+    end
+
+    --vec3f_set(m.pos, 0.0, 307.0, marioObj.oMarioJumboStarCutscenePosZ)
+    m.pos.y = m.pos.y + 100.0 * m.playerIndex
+
+    update_mario_pos_for_anim(m)
+    vec3f_copy(marioObj.header.gfx.pos, m.pos)
+    vec3s_set(marioObj.header.gfx.angle, 0, m.faceAngle.y, 0)
+
+    return false
+end
+
+function jumbo_star_cutscene_flying(m)
+    if not m then return 0 end
+    local targetPos = { x = 0.0, y = 0.0, z = 0.0 }
+
+    if m.actionState == 0 then
+        set_character_animation(m, CHAR_ANIM_WING_CAP_FLY)
+        anim_spline_init(m, sJumboStarKeyframes)
+        m.actionState = 1
+    end
+
+    if m.actionState == 1 then
+        if anim_spline_poll(m, targetPos) then
+            set_mario_action(m, ACT_FREEFALL, 0)
+            m.actionState = 2
+        else
+            targetPos.y = targetPos.y + 100.0 * m.playerIndex
+            local heightScalar = math.min(m.actionTimer / 30.0, 1.0)
+            targetPos.z = targetPos.z - 100.0 * m.playerIndex * heightScalar
+
+            local dx = targetPos.x - m.pos.x
+            local dy = targetPos.y - m.pos.y
+            local dz = targetPos.z - m.pos.z
+            local hyp = math.sqrt(dx * dx + dz * dz)
+            local angle = atan2s(dz, dx)
+
+            vec3f_copy(m.pos, targetPos)
+            m.marioObj.header.gfx.angle.y = angle
+            m.marioObj.header.gfx.angle.x = -atan2s(hyp, dy)
+            m.marioObj.header.gfx.angle.z = ((m.faceAngle.z - angle) << 16 >> 16) * 20
+            m.faceAngle.z = angle
+        end
+    elseif m.actionState == 2 then
+        set_mario_action(m, ACT_FREEFALL, 0)
+    end
+
+    m.marioBodyState.handState = MARIO_HAND_RIGHT_OPEN
+    vec3f_copy(m.marioObj.header.gfx.pos, m.pos)
+    set_mario_particle_flags(m, PARTICLE_SPARKLES, 0)
+
+    m.actionTimer = m.actionTimer + 1
+    if m.actionTimer == 500 and m.playerIndex == 0 then
+        -- Set Mario to Spectator rather than warping
+        set_mario_spectator(m)
+    end
+
+    return false
+end
+
+
+local function act_jumbo_star_cutscene(m)
+    if (not m)then return false end
+    if m.actionArg == JUMBO_STAR_CUTSCENE_FALLING then
+        jumbo_star_cutscene_falling(m)
+    elseif m.actionArg == JUMBO_STAR_CUTSCENE_TAKING_OFF then
+        jumbo_star_cutscene_taking_off(m)
+    elseif m.actionArg == JUMBO_STAR_CUTSCENE_FLYING then
+        jumbo_star_cutscene_flying(m)
+    end
+    return false;
+end
+
+hook_mario_action(ACT_JUMBO_STAR_CUTSCENE, act_jumbo_star_cutscene)
+]]

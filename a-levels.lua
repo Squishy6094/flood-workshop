@@ -34,9 +34,12 @@ local table_insert,djui_popup_create = table.insert,djui_popup_create
 
 local function flood_define_level(bonus, level, name, goalPos, speed, area, type, customStartPos)
     gLevels[level] = { name = name, goalPos = goalPos, speed = speed, area = area, type = type, time = 0, customStartPos = customStartPos }
-    table_insert(gMapRotation, level)
+    if not bonus then
+        table_insert(gMapRotation, level)
+    else
+        FLOOD_BONUS_LEVELS = FLOOD_BONUS_LEVELS + 1
+    end
 
-    if bonus then FLOOD_BONUS_LEVELS = FLOOD_BONUS_LEVELS + 1 end
     FLOOD_LEVEL_COUNT = FLOOD_LEVEL_COUNT + 1
 end
 _G.flood_define_level = flood_define_level
