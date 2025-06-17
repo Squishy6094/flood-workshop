@@ -33,14 +33,67 @@ for i = 0, MAX_PLAYERS - 1 do
     gFloodPlayers[i] = {
         index = network_global_index_from_local(i),
         finished = false,
+        modifiers = "",
+        forceSpec = false,
         time = 0,
         timeFull = 0,
+        points = 0,
     }
+end
+
+local function get_modifiers_string()
+    local moveset = false
+    if _G.OmmEnabled and _G.OmmApi.omm_get_setting(m, _G.OmmApi["OMM_SETTING_MOVESET"]) == _G.OmmApi["OMM_SETTING_MOVESET_ODYSSEY"] then
+        moveset = true
+    end
+    if _G.charSelectExists then
+        local charMoveset = #_G.charSelect.character_get_moveset(_G.charSelect.character_get_current_number(0)) > 0
+        local charToggle = _G.charSelect.get_options_status(_G.charSelect.optionTableRef.localMoveset) ~= 0 
+        if charMoveset and charToggle then
+            moveset = true
+        end
+    end
+
+    local modifiers = ""
+    if serverMoveset or moveset then
+        modifiers = modifiers .. "Moveset"
+    end
+    if cheats then
+        modifiers = modifiers .. ", Cheats"
+    end
+    if modifiers ~= "" then
+        modifiers = " (" .. modifiers .. ")"
+    end
+    return modifiers
+end
+
+local SAVETAG_TIME = "time"
+local SAVETAG_POINTS = "points"
+
+local function get_level_save_name(saveTag)
+    return game..gLevels[gGlobalSyncTable.level].name..saveTag
+end
+
+local function get_best_beaten(saveTag, value)
+    local saveValue = mod_storage_load_number(get_level_save_name(saveTag))
+    if value == 0 or get_modifiers_string() ~= "" then return false end
+    if saveValue == 0 then return true end
+    if (if_then_else(saveTag == SAVETAG_TIME, value < saveValue, value > saveValue)) then return true end
+    return false
+end
+
+local function get_best_beaten_string(saveTag, value)
+    local saveValue = mod_storage_load_number(get_level_save_name(saveTag))
+    if saveValue == 0 then return "" end
+    return " \\#ffff00\\" .. (get_best_beaten(saveTag, value) and "New Record! " or "")
 end
 
 local function network_send_time(time)
     if time == nil then time = gFloodPlayers[0].time end
     gFloodPlayers[0].time = time
+    if get_best_beaten(SAVETAG_TIME, time) then
+        mod_storage_save_number(get_level_save_name(SAVETAG_TIME), time)
+    end
     gLevels[gGlobalSyncTable.level].time = time
 
     local total = 0
@@ -49,6 +102,15 @@ local function network_send_time(time)
         total = total + gLevels[level].time
     end
     gFloodPlayers[0].timeFull = total
+    network_send(true, gFloodPlayers[0])
+end
+
+local function network_send_points(points)
+    if points == nil then points = gFloodPlayers[0].points end
+    gFloodPlayers[0].points = points
+    if get_best_beaten(SAVETAG_POINTS, points) then
+        mod_storage_save_number(get_level_save_name(SAVETAG_POINTS), points)
+    end
     network_send(true, gFloodPlayers[0])
 end
 
@@ -61,8 +123,6 @@ local function on_packet_recieve(data)
     local index = network_local_index_from_global(data.index)
     gFloodPlayers[index] = data
 end
-
-hook_event(HOOK_ON_PACKET_RECEIVE, on_packet_recieve)
 
 -- localize functions to improve performance
 local network_player_connected_count,init_single_mario,warp_to_level,play_sound,network_is_server,network_get_player_text_color_string,djui_chat_message_create,disable_time_stop,network_player_set_description,set_mario_action,obj_get_first_with_behavior_id,obj_check_hitbox_overlap,spawn_mist_particles,vec3f_dist,play_race_fanfare,play_music,djui_hud_set_resolution,djui_hud_get_screen_height,djui_hud_get_screen_width,djui_hud_render_rect,djui_hud_set_font,djui_hud_world_pos_to_screen_pos,clampf,math_floor,djui_hud_measure_text,djui_hud_print_text,hud_render_power_meter,hud_get_value,save_file_erase_current_backup_save,save_file_set_flags,save_file_set_using_backup_slot,find_floor_height,spawn_non_sync_object,set_environment_region,vec3f_set,vec3f_copy,math_random,set_ttc_speed_setting,get_level_name,hud_hide,smlua_text_utils_secret_star_replace,smlua_audio_utils_replace_sequence = network_player_connected_count,init_single_mario,warp_to_level,play_sound,network_is_server,network_get_player_text_color_string,djui_chat_message_create,disable_time_stop,network_player_set_description,set_mario_action,obj_get_first_with_behavior_id,obj_check_hitbox_overlap,spawn_mist_particles,vec3f_dist,play_race_fanfare,play_music,djui_hud_set_resolution,djui_hud_get_screen_height,djui_hud_get_screen_width,djui_hud_render_rect,djui_hud_set_font,djui_hud_world_pos_to_screen_pos,clampf,math.floor,djui_hud_measure_text,djui_hud_print_text,hud_render_power_meter,hud_get_value,save_file_erase_current_backup_save,save_file_set_flags,save_file_set_using_backup_slot,find_floor_height,spawn_non_sync_object,set_environment_region,vec3f_set,vec3f_copy,math.random,set_ttc_speed_setting,get_level_name,hud_hide,smlua_text_utils_secret_star_replace,smlua_audio_utils_replace_sequence
@@ -103,39 +163,24 @@ local function get_dest_act()
     end
 end
 
-local function get_modifiers_string()
-    --if not cheats and not serverMoveset then return "" end
-    local moveset = false
-    if _G.OmmEnabled and _G.OmmApi.omm_get_setting(m, _G.OmmApi["OMM_SETTING_MOVESET"]) == _G.OmmApi["OMM_SETTING_MOVESET_ODYSSEY"] then
-        moveset = true
-    end
-    if _G.charSelectExists then
-        local charMoveset = #_G.charSelect.character_get_moveset(_G.charSelect.character_get_current_number(0)) > 0
-        local charToggle = _G.charSelect.get_options_status(_G.charSelect.optionTableRef.localMoveset) ~= 0 
-        if charMoveset and charToggle then
-            moveset = true
-        end
-    end
-
-    local modifiers = ""
-    if serverMoveset or moveset then
-        modifiers = modifiers .. "Moveset"
-    end
-    if cheats then
-        modifiers = modifiers .. ", Cheats"
-    end
-    if modifiers ~= "" then
-        modifiers = " (" .. modifiers .. ")"
-    end
-    return modifiers
-end
-
 function level_restart()
     round_start()
     init_single_mario(gMarioStates[0])
     mario_set_full_health(gMarioStates[0])
     network_send_time(0)
+    network_send_points(0)
+    network_send_finished(network_player_connected_count() > 1 and gFloodPlayers[0].forceSpec or false)
     warp_to_level(gGlobalSyncTable.level, gLevels[gGlobalSyncTable.level].area, get_dest_act())
+end
+
+local function on_interact(m, o, type, value)
+    if m.playerIndex ~= 0 then return end
+    if type == INTERACT_COIN then
+        gFloodPlayers[0].points = gFloodPlayers[0].points + math.max(o.oDamageOrCoinValue, 1)
+    end
+    if type == INTERACT_STAR_OR_KEY then
+        gFloodPlayers[0].points = gFloodPlayers[0].points + 10
+    end
 end
 
 local function server_update()
@@ -231,8 +276,8 @@ local function update()
                 local finished = 0
                 local string = "Survivors:"
                 for i = 0, (MAX_PLAYERS - 1) do
-                    if gNetworkPlayers[i].connected and gFloodPlayers[i].finished then
-                        string = string .. "\n" .. network_get_player_text_color_string(i) .. gNetworkPlayers[i].name .. " - " .. timestamp(gFloodPlayers[i].time)
+                    if gNetworkPlayers[i].connected and gFloodPlayers[i].finished and not gFloodPlayers[i].forceSpec then
+                        string = string .. "\n" .. network_get_player_text_color_string(i) .. gNetworkPlayers[i].name .. " - " .. timestamp(gFloodPlayers[i].time) .. " - " .. tostring(gFloodPlayers[i].points) .. " " .. gFloodPlayers[0].modifiers
                         finished = finished + 1
                     end
                 end
@@ -252,7 +297,8 @@ local function update()
             listedSurvivors = false
             mario_set_full_health(gMarioStates[0])
             network_send_time(0)
-            network_send_finished(false)
+            network_send_points(0)
+            network_send_finished(network_player_connected_count() > 1 and gFloodPlayers[0].forceSpec or false)
             warp_to_level(gGlobalSyncTable.level, gLevels[gGlobalSyncTable.level].area, act)
         end
     end
@@ -324,8 +370,12 @@ local function mario_update(m)
     local goalPos = gLevels[gGlobalSyncTable.level].goalPos
     local atGoalPoal = (vec3f_dist_2d(m.pos, goalPos) < 10 and m.pos.y > goalPos.y and m.pos.y < goalPos.y + 650)
     if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gFloodPlayers[0].finished and (((m.action & ACT_FLAG_ON_POLE) ~= 0 and atGoalPoal) or m.action == ACT_JUMBO_STAR_CUTSCENE) then
+        local bestTimeString = get_best_beaten_string(SAVETAG_TIME, gFloodPlayers[0].time)
+        local bestPointString = get_best_beaten_string(SAVETAG_POINTS, gFloodPlayers[0].points)
         network_send_finished(true)
+        network_send_points()
         network_send_time()
+        gFloodPlayers[0].modifiers = get_modifiers_string()
 
         local string = ""
         if not is_final_level() then
@@ -335,8 +385,11 @@ local function mario_update(m)
             string = string .. "\\#00ff00\\You escaped the \\#ffff00\\final\\#00ff00\\ flood! Congratulations!\n"
             play_music(0, SEQUENCE_ARGS(8, SEQ_EVENT_CUTSCENE_VICTORY), 0)
         end
-        string = string .. "\\#dcdcdc\\Time: " .. timestamp(gFloodPlayers[0].time) .. get_modifiers_string() .. "\n"
-        string = string .. "\\#dcdcdc\\Total Time: " .. timestamp(gFloodPlayers[0].timeFull)
+        string = string .. "\\#dcdcdc\\Time: " .. timestamp(gFloodPlayers[0].time) .. bestTimeString .. "\n"
+        string = string .. "\\#dcdcdc\\Points: " .. gFloodPlayers[0].points .. bestPointString .. "\n"
+        if get_modifiers_string() ~= "" then
+            string = string .. "\\#898989\\Your score did not save..."  .. "\n"
+        end
         djui_chat_message_create(string)
     end
 
@@ -473,9 +526,12 @@ local function on_hud_render()
 
     djui_hud_set_font(FONT_HUD)
 
+    --[[
     djui_hud_render_texture(gTextures.coin, 5, 5, 1, 1)
     djui_hud_print_text(">", 21, 5, 1)
     djui_hud_print_text(tostring(hud_get_value(HUD_DISPLAY_COINS)), 37, 5, 1)
+    ]]
+    djui_hud_print_text(tostring(gFloodPlayers[0].points) .. " PTS", 5, 5, 1)
 
     if gGlobalSyncTable.speedMultiplier ~= 1 then
         djui_hud_print_text(string.format("%.2fx", gGlobalSyncTable.speedMultiplier), 5, 24, 1)
@@ -603,6 +659,7 @@ local function on_player_connected()
 end
 
 local function on_start_command(msg)
+    if not network_is_server() then return end
     if msg == "?" then
         djui_chat_message_create("/flood \\#00ffff\\start\\#ffff00\\ [random|1-" .. FLOOD_LEVEL_COUNT .. "]\\#dcdcdc\\\nSets the level to a random one or a specific one, you can also leave it empty for normal progression.")
         return true
@@ -633,6 +690,7 @@ local function on_start_command(msg)
 end
 
 local function on_speed_command(msg)
+    if not network_is_server() then return end
     local speed = tonumber(msg)
     if speed ~= nil then
         speed = clampf(speed, 0, 10)
@@ -647,6 +705,7 @@ local function on_speed_command(msg)
 end
 
 local function on_ttc_speed_command(msg)
+    if not network_is_server() then return end
     if gGlobalSyncTable.roundState ~= ROUND_STATE_INACTIVE then
         djui_chat_message_create("\\#ff0000\\You can only change the TTC speed before the round starts!")
         return true
@@ -676,6 +735,7 @@ local function on_ttc_speed_command(msg)
 end
 
 local function on_speedrun_command(msg)
+    if not network_is_server() then return end
     msg = msg:lower()
     if msg == "off" then
         djui_chat_message_create("Speedrun mode status: \\#ff0000\\OFF")
@@ -709,6 +769,12 @@ local function on_scoreboard_command()
     return true
 end
 
+local function on_force_spectator_command()
+    gFloodPlayers[0].forceSpec = not gFloodPlayers[0].forceSpec
+    djui_chat_message_create("Force Spectator: " .. (gFloodPlayers[0].forceSpec and "\\#00ff00\\ON" or "\\#ff0000\\OFF"))
+    return true
+end
+
 local function on_flood_command(msg)
     local args = split(msg)
     if args[1] == "start" then
@@ -721,9 +787,11 @@ local function on_flood_command(msg)
         return on_speedrun_command(args[2] or "")
     elseif args[1] == "scoreboard" then
         return on_scoreboard_command()
+    elseif args[1] == "spectator" then
+        return on_force_spectator_command()
     end
 
-    djui_chat_message_create("/flood \\#00ffff\\[start|speed|ttc-speed|speedrun|scoreboard]")
+    djui_chat_message_create("/flood \\#00ffff\\[start|speed|ttc-speed|speedrun|scoreboard|spectator]")
     return true
 end
 
@@ -751,14 +819,18 @@ hook_event(HOOK_ON_HUD_RENDER_BEHIND, on_hud_render)
 hook_event(HOOK_ON_LEVEL_INIT, on_level_init)
 hook_event(HOOK_ON_WARP, on_warp)
 hook_event(HOOK_ON_PLAYER_CONNECTED, on_player_connected)
+hook_event(HOOK_ON_PACKET_RECEIVE, on_packet_recieve)
+hook_event(HOOK_ON_INTERACT, on_interact)
 hook_event(HOOK_USE_ACT_SELECT, function() return false end)
 
 if network_is_server() then
-    hook_chat_command("flood", "\\#00ffff\\[start|speed|ttc-speed|speedrun|scoreboard]", on_flood_command)
+    hook_chat_command("flood", "\\#00ffff\\[start|speed|ttc-speed|speedrun|scoreboard|spectator]", on_flood_command)
     hook_mod_menu_text("Host Settings")
     local loadMatPhys = mod_storage_load_bool("materialPhys")
     hook_mod_menu_checkbox("Material Physics", loadMatPhys ~= nil and loadMatPhys or true, function(index, value)
         gGlobalSyncTable.materialPhys = value
         mod_storage_save_bool("materialPhys", value)
     end)
+else
+    hook_chat_command("flood", "\\#00ffff\\[scoreboard|spectator]", on_flood_command)
 end

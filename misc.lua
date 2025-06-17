@@ -135,12 +135,12 @@ local function obj_mark_for_deletion_on_sync(o)
     if gNetworkPlayers[0].currAreaSyncValid then obj_mark_for_deletion(o) end
 end
 
-hook_behavior(id_bhvStar, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
+--hook_behavior(id_bhvStar, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
 hook_behavior(id_bhvHoot, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
 hook_behavior(id_bhvWarpPipe, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
 hook_behavior(id_bhvFadingWarp, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
 hook_behavior(id_bhvBalconyBigBoo, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
-hook_behavior(id_bhvExclamationBox, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
+--hook_behavior(id_bhvExclamationBox, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
 hook_behavior(id_bhvWaterLevelDiamond, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
 hook_behavior(id_bhvKoopaRaceEndpoint, OBJ_LIST_UNIMPORTANT, true, obj_hide, obj_mark_for_deletion_on_sync)
 
@@ -155,6 +155,13 @@ local function allow_interact(m, o)
     end
 
     return true
+end
+
+--- @param m MarioState
+local function before_mario_action(m, nextAct)
+    if m.action == ACT_SPECTATOR and gGlobalSyncTable.roundState == ROUND_STATE_ACTIVE then
+        return false
+    end
 end
 
 local function on_death()
@@ -194,6 +201,7 @@ local function on_packet_receive(dataTable)
 end
 
 hook_event(HOOK_ALLOW_INTERACT, allow_interact)
+hook_event(HOOK_BEFORE_SET_MARIO_ACTION, before_mario_action)
 hook_event(HOOK_ON_DEATH, on_death)
 hook_event(HOOK_ON_PAUSE_EXIT, on_pause_exit)
 hook_event(HOOK_ALLOW_HAZARD_SURFACE, allow_hazard_surface)

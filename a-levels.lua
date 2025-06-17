@@ -11,10 +11,16 @@ FLOOD_LEVEL_COUNT = 0
 LEVEL_LOBBY = LEVEL_JRB
 LEVEL_CTT = LEVEL_SA
 
-GAME_VANILLA = 0
-GAME_STAR_ROAD = 1
+GAME_VANILLA = "sm64"
+GAME_STAR_ROAD = "star-road"
 
-game = GAME_VANILLA
+game = "sm64"
+for mod in pairs(gActiveMods) do
+    if gActiveMods[mod].incompatible ~= nil and gActiveMods[mod].incompatible:find("romhack") then
+        game = gActiveMods[mod].relativePath
+        break
+    end
+end
 
 --- @class FloodLevel
 --- @field public name string
@@ -93,18 +99,11 @@ local function flood_load_star_road_levels()
 end
 
 -- load romhack levels
-for mod in pairs(gActiveMods) do
-    if gActiveMods[mod].incompatible ~= nil and gActiveMods[mod].incompatible:find("romhack") then
-        if gActiveMods[mod].relativePath == "star-road" then
-            flood_load_star_road_levels()
-        else
-            unsupported = true
-            djui_popup_create("\\#ff0000\\This rom hack is not supported with Flood.", 2)
-        end
-        break
-    end
-end
-
-if not unsupported and game == GAME_VANILLA then
+if game == GAME_VANILLA then
     flood_load_vanilla_levels()
+elseif game == GAME_STAR_ROAD then
+    flood_load_star_road_levels()
+else
+    unsupported = true
+    djui_popup_create("\\#ff0000\\This rom hack is not supported with Flood.", 2)
 end

@@ -66,7 +66,7 @@ end
 
 --- @param m MarioState
 function set_mario_spectator(m)
-    if gNetworkPlayers[m.playerIndex].currLevelNum == LEVEL_LOBBY then
+    if gNetworkPlayers[m.playerIndex].currLevelNum == LEVEL_LOBBY and gGlobalSyncTable.roundState ~= ROUND_STATE_ACTIVE then
         return
     end
     if m.action ~= ACT_SPECTATOR then
