@@ -1,7 +1,7 @@
 -- name: Flood Workshop
 -- category: gamemode
 -- incompatible: gamemode flood
--- description: Flood v2.4.8\nBy \\#ec7731\\Agent X\\#dcdcdc\\\n\nThis mod adds a flood escape gamemode\nto sm64ex-coop, you must escape the flood and reach the top of the level before everything is flooded.
+-- description: Flood Workshop v1\nBy \\#008800\\Squishy6094\\#dcdcdc\\\n\nThis mod adds a flood escape gamemode\nto sm64coopdx, you must escape the flood and reach the top of the level before everything is flooded.\n\nFlood Workshop aims to update the original Flood with a fresh coat of paint, while keeping the expirience as close to the original as possible!\n\nOriginal By \\#ec7731\\Agent X\n\\#898989\\Forked from Flood v2.4.8
 
 if unsupported then return end
 
