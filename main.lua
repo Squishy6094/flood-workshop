@@ -490,6 +490,8 @@ local function on_hud_render()
     djui_hud_set_resolution(RESOLUTION_N64)
     djui_hud_set_font(FONT_TINY)
 
+    local width = djui_hud_get_screen_width()
+    local height = 240
     local level = gLevels[gNetworkPlayers[0].currLevelNum]
     if level ~= nil and level.name ~= "ctt" then
         local out = { x = 0, y = 0, z = 0 }
@@ -526,12 +528,12 @@ local function on_hud_render()
 
     djui_hud_set_font(FONT_HUD)
 
-    --[[
-    djui_hud_render_texture(gTextures.coin, 5, 5, 1, 1)
-    djui_hud_print_text(">", 21, 5, 1)
-    djui_hud_print_text(tostring(hud_get_value(HUD_DISPLAY_COINS)), 37, 5, 1)
-    ]]
+    -- Points
     djui_hud_print_text(tostring(gFloodPlayers[0].points) .. " PTS", 5, 5, 1)
+    -- Coins
+    djui_hud_render_texture(gTextures.coin, 5, height - 21, 1, 1)
+    djui_hud_print_text("<", 21, height - 21, 1)
+    djui_hud_print_text(tostring(hud_get_value(HUD_DISPLAY_COINS)), 37, height - 21, 1)
 
     if gGlobalSyncTable.speedMultiplier ~= 1 then
         djui_hud_print_text(string.format("%.2fx", gGlobalSyncTable.speedMultiplier), 5, 24, 1)
@@ -806,7 +808,7 @@ gLevelValues.fixCollisionBugs = 1
 gLevelValues.fixCollisionBugsRoundedCorners = 0
 
 if game == GAME_VANILLA then
-    set_ttc_speed_setting(TTC_SPEED_SLOW)
+    set_ttc_speed_setting(TTC_SPEED_STOPPED)
 
     smlua_text_utils_secret_star_replace(COURSE_SA, "   Climb The Tower Flood")
 
