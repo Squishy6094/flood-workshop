@@ -47,7 +47,8 @@ local function get_modifiers_string()
         moveset = true
     end
     if _G.charSelectExists then
-        local charMoveset = #_G.charSelect.character_get_moveset(_G.charSelect.character_get_current_number(0)) > 0
+        local charMovesetTable = _G.charSelect.character_get_moveset(_G.charSelect.character_get_current_number(0))
+        local charMoveset = charMovesetTable ~= nil and #charMovesetTable > 0
         local charToggle = _G.charSelect.get_options_status(_G.charSelect.optionTableRef.localMoveset) ~= 0 
         if charMoveset and charToggle then
             moveset = true
