@@ -28,9 +28,13 @@ local globalTimer = 0
 local listedSurvivors = false
 local speedrunner = 0
 
+PACKET_PLAYER = 1
+PACKET_SERVER = 2
+
 gFloodPlayers = {}
 for i = 0, MAX_PLAYERS - 1 do
     gFloodPlayers[i] = {
+        type = PACKET_PLAYER,
         index = network_global_index_from_local(i),
         finished = false,
         modifiers = "",
@@ -89,7 +93,12 @@ local function get_best_beaten_string(saveTag, value)
     return " \\#ffff00\\" .. (get_best_beaten(saveTag, value) and "New Record! " or "")
 end
 
-local function network_send_time(time)
+local function network_send_local_player_data()
+    djui_chat_message_create("Packet Sent")
+    network_send(true, gFloodPlayers[0])
+end
+
+local function player_set_time(time)
     if time == nil then time = gFloodPlayers[0].time end
     gFloodPlayers[0].time = time
     if get_best_beaten(SAVETAG_TIME, time) then
@@ -103,24 +112,24 @@ local function network_send_time(time)
         total = total + gLevels[level].time
     end
     gFloodPlayers[0].timeFull = total
-    network_send(true, gFloodPlayers[0])
 end
 
-local function network_send_points(points)
+local function player_set_points(points)
     if points == nil then points = gFloodPlayers[0].points end
     gFloodPlayers[0].points = points
     if get_best_beaten(SAVETAG_POINTS, points) then
         mod_storage_save_number(get_level_save_name(SAVETAG_POINTS), points)
     end
-    network_send(true, gFloodPlayers[0])
 end
 
-local function network_send_finished(finished)
+local function player_set_finished(finished)
     gFloodPlayers[0].finished = finished
-    network_send(true, gFloodPlayers[0])
 end
 
 local function on_packet_recieve(data)
+    djui_chat_message_create("Packet Got")
+    if not data.type == PACKET_PLAYER then return end
+    djui_chat_message_create("Packet Good")
     local index = network_local_index_from_global(data.index)
     gFloodPlayers[index] = data
 end
@@ -168,10 +177,11 @@ function level_restart()
     round_start()
     init_single_mario(gMarioStates[0])
     mario_set_full_health(gMarioStates[0])
-    network_send_time(0)
-    network_send_points(0)
-    network_send_finished(network_player_connected_count() > 1 and gFloodPlayers[0].forceSpec or false)
+    player_set_time(0)
+    player_set_points(0)
+    player_set_finished(network_player_connected_count() > 1 and gFloodPlayers[0].forceSpec or false)
     warp_to_level(gGlobalSyncTable.level, gLevels[gGlobalSyncTable.level].area, get_dest_act())
+    network_send_local_player_data()
 end
 
 local function on_interact(m, o, type, value)
@@ -293,15 +303,18 @@ local function update()
             end
         end
     elseif gGlobalSyncTable.roundState == ROUND_STATE_ACTIVE then
+        --[[
         local act = get_dest_act()
         if gNetworkPlayers[0].currLevelNum ~= gGlobalSyncTable.level or gNetworkPlayers[0].currActNum ~= act then
             listedSurvivors = false
             mario_set_full_health(gMarioStates[0])
-            network_send_time(0)
-            network_send_points(0)
-            network_send_finished(network_player_connected_count() > 1 and gFloodPlayers[0].forceSpec or false)
+            player_set_time(0)
+            player_set_points(0)
+            player_set_finished(network_player_connected_count() > 1 and gFloodPlayers[0].forceSpec or false)
             warp_to_level(gGlobalSyncTable.level, gLevels[gGlobalSyncTable.level].area, act)
+            network_send_local_player_data()
         end
+        ]]
     end
 
     -- stops the star spawn cutscenes from happening
@@ -373,10 +386,11 @@ local function mario_update(m)
     if gNetworkPlayers[0].currLevelNum == gGlobalSyncTable.level and not gFloodPlayers[0].finished and (((m.action & ACT_FLAG_ON_POLE) ~= 0 and atGoalPoal) or m.action == ACT_JUMBO_STAR_CUTSCENE) then
         local bestTimeString = get_best_beaten_string(SAVETAG_TIME, gFloodPlayers[0].time)
         local bestPointString = get_best_beaten_string(SAVETAG_POINTS, gFloodPlayers[0].points)
-        network_send_finished(true)
-        network_send_points()
-        network_send_time()
+        player_set_finished(true)
+        player_set_points()
+        player_set_time()
         gFloodPlayers[0].modifiers = get_modifiers_string()
+        network_send_local_player_data()
 
         local string = ""
         if not is_final_level() then
@@ -684,7 +698,7 @@ local function on_start_command(msg)
         end
     end
     if gGlobalSyncTable.roundState == ROUND_STATE_ACTIVE then
-        network_send(true, { restart = true })
+        network_send(true, { type = PACKET_SERVER,  restart = true })
         level_restart()
     else
         round_start()

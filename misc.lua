@@ -174,7 +174,7 @@ end
 
 local function on_pause_exit()
     if network_is_server() then
-        network_send(true, { restart = true })
+        network_send(true, { type = PACKET_SERVER, restart = true })
         level_restart()
     end
     return false
@@ -206,4 +206,4 @@ hook_event(HOOK_ON_DEATH, on_death)
 hook_event(HOOK_ON_PAUSE_EXIT, on_pause_exit)
 hook_event(HOOK_ALLOW_HAZARD_SURFACE, allow_hazard_surface)
 hook_event(HOOK_ON_OBJECT_UNLOAD, on_object_unload)
-hook_event(HOOK_ON_PACKET_RECEIVE, on_packet_receive)
+--hook_event(HOOK_ON_PACKET_RECEIVE, on_packet_receive)
